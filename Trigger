@@ -1,1 +1,55 @@
-/
+Requirement: 
+Every account will have multiple ACR roles.
+On Accounts atleast 1 Finance Contact role is required, so add validation to prevent last Finace contact role from being deleted or removing Finance contact role.
+your validation should fire only if last finance contact role on account is being changed or deleted.
+ 
+
+
+
+
+public class AccountContactRealtionHelper {
+    
+                                                                                     
+    public static  void PreventLastFinanceContactDeletion(List<AccountContactRelation> oldAcr ) {
+        Map<Id, Account> accountMap = new Map<Id, Account>();
+        Set<Id> accountIds = new Set<Id>();
+        for (AccountContactRelation acr : oldAcr) {
+            accountIds.add(acr.AccountId);
+        }
+         for (Account acc : [SELECT Id, (SELECT Id, Roles FROM AccountContactRelations WHERE Roles INCLUDES ('Finance Contact') ) FROM Account WHERE Id IN :accountIds]) {
+            accountMap.put(acc.Id, acc);
+        }
+        
+        for (AccountContactRelation acr : oldAcr) {
+            Account associatedAccount = accountMap.get(acr.AccountId);
+
+            if (associatedAccount != null && associatedAccount.AccountContactRelations.size()==1) {
+                acr.addError('Deletion of the last Finance Contact role is not allowed for the Account.');
+            }
+        }
+    }
+    
+    public static void prevnetUpdateToFinanceContact(List<AccountContactRelation> newAcrRecords,List<AccountContactRelation> oldAcrRecords )
+    {
+        Map<Id, String> oldRolesMap = new Map<Id, String>();
+        Set<Id> accountIds = new Set<Id>();
+        for (AccountContactRelation acr : oldAcrRecords) {
+            accountIds.add(acr.AccountId);
+        }
+        List<AccountContactRelation> oldRecords =  [SELECT Id, Roles FROM AccountContactRelation WHERE Roles INCLUDES('Finance Contact') AND AccountId IN:accountIds];
+         System.debug('line no 31'+oldRecords);
+        for (AccountContactRelation oldAcr :oldRecords ) {
+            oldRolesMap.put(oldAcr.Id, oldAcr.Roles);
+        }
+        
+        for (AccountContactRelation acr : newAcrRecords) {
+            if (acr.Roles != oldRolesMap.get(acr.Id)) {
+                if(oldRecords.size()==1){
+                if (acr.Roles != null && !acr.Roles.contains('Finance Contact')) {
+                    acr.addError('Removal of the "Finance Contact" role is not allowed.');
+                }
+                }
+            }
+    }
+}
+}
